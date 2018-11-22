@@ -323,15 +323,15 @@ def main():
             presenter = automation(scheduler, zoom_col=options.zoom_col)
             if presenter is not None:
                 wait = True
-            elif input("Do you continue or finish? :: ") == "finish":
+            elif input("Did you finish today's meeting? :: ") == "yes":
                 break
         else:
-            console("Giving a presentation ... ", "\r")
+            console("Give a presentation ... ", "\r")
             all_info = window_info(presenter["app"])
             prog = re.compile(f"^{presenter['target']}.*$")
             win_info = [v for k, v in all_info.items() if prog.match(k)]
             if not len(win_info):
-                console("Giving a presentation ... [done]")
+                console("Give a presentation ... [done]")
                 task_name = os.path.basename(presenter["path"])
                 scheduler.notify(task_name)
                 wait = False
