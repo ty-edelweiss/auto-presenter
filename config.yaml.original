@@ -1,9 +1,9 @@
 data: # settings for loading data
   assets: ~/Presentation
-  groups: # assign group's priority
-     B4: 3
-     M1: 2
-     M2: 1
+  groups: # allocate group's priority
+     B4: 30
+     M1: 20
+     M2: 10
 env: # settings for running script
   cache: .cache.bin
   sleep: 1

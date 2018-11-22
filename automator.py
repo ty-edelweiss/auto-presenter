@@ -43,7 +43,6 @@ WINDOWS_ = {
         "^Zoom *(Participant ID: [0-9]+    Meeting ID: [0-9\-]+)*$",
         "^Select a window or an application that you want to share+$",
     ],
-    "Microsoft PowerPoint": ["Microsoft PowerPoint"]
 }
 INTERVAL_ = 1
 RETRY_ = 2
@@ -101,7 +100,9 @@ class Scheduler(object):
 
     def calc_priority(self, filepath):
         group = os.path.dirname(filepath).split("/")[-1]
-        return self.config_["data"]["groups"][group]
+        m = re.match(r"^([0-9]).+$", os.path.basename(filepath))
+        speciality = 10 - int(m.groups()[0]) if m else 0
+        return self.config_["data"]["groups"][group] + speciality
 
     def notify(self, filename: str):
         self.stack_[filename]["completed"] = True
