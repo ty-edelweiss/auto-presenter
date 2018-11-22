@@ -1,0 +1,9 @@
+data: # settings for loading data
+  assets: ~/Presentation
+  groups: # assign group's priority
+     B4: 3
+     M1: 2
+     M2: 1
+env: # settings for running script
+  cache: .cache.bin
+  sleep: 1
