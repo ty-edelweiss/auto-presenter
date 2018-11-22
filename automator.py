@@ -89,6 +89,7 @@ class Cache(object):
         if cls.caching_:
             with open(cls.cache_file_, "wb") as fp:
                 pickle.dump(cache, fp)
+        LOGGER_.debug("(Cache) -> %s", cache)
 
 
 class Scheduler(object):
@@ -104,8 +105,8 @@ class Scheduler(object):
         speciality = 10 - int(m.groups()[0]) if m else 0
         return self.config_["data"]["groups"][group] + speciality
 
-    def notify(self, filename: str):
-        self.stack_[filename]["completed"] = True
+    def notify(self, filekey: str):
+        self.stack_[filekey]["completed"] = True
         Cache.get_instance().save(self.stack_)
         return True
 
@@ -113,10 +114,10 @@ class Scheduler(object):
         files = [f for ext in EXTENSIONS_ for f in glob.glob(os.path.join(self.path_, f"**/*{ext}"))]
         LOGGER_.debug(files)
         for filepath in files:
-            filename = os.path.basename(filepath)
-            if filename not in self.stack_:
-                root, ext = os.path.splitext(filename)
-                self.stack_[filename] = {
+            filekey = "/".join(filepath.split("/")[-2:])
+            if filekey not in self.stack_:
+                root, ext = os.path.splitext(os.path.basename(filepath))
+                self.stack_[filekey] = {
                     "target": root,
                     "app": CORRESPONDENCE_TABLE_[ext],
                     "path": filepath,
@@ -326,14 +327,14 @@ def main():
             elif input("Did you finish today's meeting? :: ") == "yes":
                 break
         else:
-            console("Give a presentation ... ", "\r")
+            console("\rGive a presentation ... ", '')
             all_info = window_info(presenter["app"])
             prog = re.compile(f"^{presenter['target']}.*$")
             win_info = [v for k, v in all_info.items() if prog.match(k)]
             if not len(win_info):
-                console("Give a presentation ... [done]")
-                task_name = os.path.basename(presenter["path"])
-                scheduler.notify(task_name)
+                console("\rGive a presentation ... [done]")
+                task_key = "/".join(presenter["path"].split("/")[-2:])
+                scheduler.notify(task_key)
                 wait = False
             else:
                 time.sleep(config["env"]["sleep"])
