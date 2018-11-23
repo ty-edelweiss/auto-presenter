@@ -37,18 +37,23 @@ BOUNDS_KEY_ = "kCGWindowBounds"
 PID_KEY_ = "kCGWindowOwnerPID"
 
 BASE_APP_ = "zoom.us"
-APP_ = ["Microsoft PowerPoint", "Skim", "Keynote"]
-EXTENSIONS_ = [".pptx", ".pdf", ".key"]
-WINDOWS_ = {
-    "zoom.us": [
+BASE_WINDOWS_ = {
+    "en": [
         "^Zoom - Free Account$",
         "^Zoom *(Participant ID: [0-9]+    Meeting ID: [0-9\-]+)*$",
         "^Select a window or an application that you want to share+$",
     ],
+    "ja": [
+        "^Zoom - 無料アカウント$",
+        "^Zoom *(ミーティング ID: [0-9\-]+)*$",
+    ],
 }
+APP_ = ["Microsoft PowerPoint", "Skim", "Keynote"]
+EXTENSIONS_ = [".pptx", ".pdf", ".key"]
 INTERVAL_ = 1
 RETRY_ = 2
 
+WINDOWS_ = None
 LOGGER_.setLevel(logging.INFO)
 CORRESPONDENCE_TABLE_ = dict(zip(EXTENSIONS_, APP_))
 
@@ -190,7 +195,7 @@ def operation(owner: str, info: dict, zoom_col: int = 1):
 
         all_info = window_info(BASE_APP_)
 
-        prog = re.compile(WINDOWS_[BASE_APP_][0])
+        prog = re.compile(WINDOWS_[0])
         win_info = [v for k, v in all_info.items() if prog.match(k)]
         if len(win_info) > 0:
             pid = win_info[0][PID_KEY_]
@@ -201,7 +206,7 @@ def operation(owner: str, info: dict, zoom_col: int = 1):
 
         time.sleep(INTERVAL_)
 
-        prog = re.compile(WINDOWS_[BASE_APP_][1])
+        prog = re.compile(WINDOWS_[1])
         win_info = [v for k, v in all_info.items() if prog.match(k)]
         if len(win_info) > 0:
             pyautogui.press("esc")
@@ -216,7 +221,7 @@ def operation(owner: str, info: dict, zoom_col: int = 1):
         time.sleep(INTERVAL_)
         all_info = window_info(BASE_APP_)
 
-        prog = re.compile(WINDOWS_[BASE_APP_][2])
+        prog = re.compile(WINDOWS_[2])
         win_info = [v for k, v in all_info.items() if prog.match(k)]
         if len(win_info) > 0:
             bounds = win_info[0][BOUNDS_KEY_]
@@ -283,9 +288,12 @@ def command_line(usage):
     parser.add_option("-n", "--non-cache",
                       action="store_false", dest="non_cache", default=True,
                       help="disable functions for caching")
+    parser.add_option("-l", "--lang",
+                      type="str", dest="lang", default="en",
+                      help=f"select language settings on an environment [en, ja]")
     parser.add_option("--zoom-col",
-                      type="int", dest="zoom_col", default=1,
-                      help=f"select a column for click on {BASE_APP_} (1-4)")
+                      type="int", dest="zoom_column", default=1,
+                      help=f"select a column for click on {BASE_APP_} [1-4]")
 
     options, _ = parser.parse_args()
 
@@ -293,11 +301,15 @@ def command_line(usage):
 
 
 def main():
+    global WINDOWS_
+
     options = command_line("usage: %prog [options]")
 
     if options.verbose:
         LOGGER_.setLevel(logging.DEBUG)
         LOGGER_.debug("Running on debug mode")
+
+    WINDOWS_ = BASE_WINDOWS_[options.lang]
 
     with open(CONFIG_, "r") as fp:
         config = yaml.load(fp)
@@ -310,13 +322,17 @@ def main():
         today.strftime("%Y%m%d")
     )
 
+    if not os.path.isdir(path):
+        os.mkdir(path)
+        os.chmod(path, 0o777)
     for group in config["data"]["groups"].keys():
         directory = os.path.join(path, group)
         if not os.path.isdir(directory):
-            os.makedirs(directory)
+            os.mkdir(directory)
+            os.chmod(directory, 0o777)
 
     all_info = window_info(BASE_APP_)
-    if WINDOWS_[BASE_APP_][0][1:-1] not in all_info:
+    if WINDOWS_[0][1:-1] not in all_info:
         print_e(f"ERROR: {BASE_APP_} is not ready to start meeting.")
         exit(1)
 
@@ -329,7 +345,7 @@ def main():
     wait = False
     while True:
         if not wait:
-            presenter = automation(scheduler, zoom_col=options.zoom_col)
+            presenter = automation(scheduler, zoom_col=options.zoom_column)
             if presenter is not None:
                 wait = True
             elif input("Did you finish today's meeting? :: ") == "yes":
