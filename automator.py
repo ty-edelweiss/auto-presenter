@@ -162,7 +162,7 @@ def window_startup(target: str, app: str, path: str):
     cmd = ["open",  path]
     status = subprocess.check_call(cmd)
     if status:
-        print(f"ERROR: {app} cannot be opened")
+        print_e(f"ERROR: {app} cannot be opened")
         exit(1)
     prog = re.compile(f"^{target}.*$")
     damping = 4
@@ -196,7 +196,7 @@ def operation(owner: str, info: dict, zoom_col: int = 1):
             pid = win_info[0][PID_KEY_]
             window_activate(pid)
         else:
-            print(f"ERROR: {BASE_APP_} is not ready to start a presentation.")
+            print_e(f"ERROR: {BASE_APP_} is not ready to start a presentation.")
             exit(1)
 
         time.sleep(INTERVAL_)
@@ -210,7 +210,7 @@ def operation(owner: str, info: dict, zoom_col: int = 1):
             pyautogui.moveTo(window_x, window_y)
             pyautogui.click(window_x, window_y)
         else:
-            print(f"ERROR: {BASE_APP_} is not ready to start a presentation.")
+            print_e(f"ERROR: {BASE_APP_} is not ready to start a presentation.")
             exit(1)
 
         time.sleep(INTERVAL_)
@@ -227,7 +227,7 @@ def operation(owner: str, info: dict, zoom_col: int = 1):
             pyautogui.moveTo(window_x, window_y)
             pyautogui.click(window_x, window_y)
         else:
-            print(f"ERROR: {BASE_APP_} is not ready to start a presentation.")
+            print_e(f"ERROR: {BASE_APP_} is not ready to start a presentation.")
             exit(1)
 
         time.sleep(INTERVAL_)
@@ -269,6 +269,10 @@ def automation(scheduler: object, **kwargs):
 
 def print_b(message: str, endl: str = "\n"):
     print(f"\033[1;39m{message}\033[0;39m", end=endl)
+
+
+def print_e(message: str, endl: str = "\n"):
+    print(f"\033[0;31m{message}\033[0;39m", end=endl)
 
 
 def command_line(usage):
@@ -313,7 +317,7 @@ def main():
 
     all_info = window_info(BASE_APP_)
     if WINDOWS_[BASE_APP_][0][1:-1] not in all_info:
-        print(f"ERROR: {BASE_APP_} is not ready to start meeting.")
+        print_e(f"ERROR: {BASE_APP_} is not ready to start meeting.")
         exit(1)
 
     Cache.get_instance().set(options.non_cache, config, path)
