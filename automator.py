@@ -255,6 +255,8 @@ def operation(owner: str, info: dict, zoom_col: int = 1):
             pyautogui.hotkey("shift", "command", "enter")
         elif active_app == "Skim" or active_app == "Keynote":
             pyautogui.hotkey("option", "command", "p")
+        elif active_app == "Preview":
+            pyautogui.hotkey("shift", "command", "f")
 
         time.sleep(2 * INTERVAL_)
         new_win = len(window_info(active_app, compress=False)) - win_num
