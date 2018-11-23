@@ -46,6 +46,7 @@ BASE_WINDOWS_ = {
     "ja": [
         "^Zoom - 無料アカウント$",
         "^Zoom *(ミーティング ID: [0-9\-]+)*$",
+        "^共有するウィンドウまたはアプリケーションの選択$",
     ],
 }
 APP_ = ["Microsoft PowerPoint", "Skim", "Keynote"]
