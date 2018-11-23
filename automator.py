@@ -28,6 +28,8 @@ from Foundation import NSSet
 logging.basicConfig(format="%(asctime)s [%(name)s] - %(levelname)s: %(message)s", level=logging.DEBUG)
 LOGGER_ = logging.getLogger(__file__)
 
+LOADING_ = [".    ", "..   ", "...  ", ".... ", "....."]
+
 CONFIG_ = "config.yaml"
 OWNER_KEY_ = "kCGWindowOwnerName"
 NAME_KEY_ = "kCGWindowName"
@@ -160,7 +162,7 @@ def window_startup(target: str, app: str, path: str):
     cmd = ["open",  path]
     status = subprocess.check_call(cmd)
     if status:
-        console(f"ERROR: {app} cannot be opened")
+        print(f"ERROR: {app} cannot be opened")
         exit(1)
     prog = re.compile(f"^{target}.*$")
     damping = 4
@@ -194,7 +196,7 @@ def operation(owner: str, info: dict, zoom_col: int = 1):
             pid = win_info[0][PID_KEY_]
             window_activate(pid)
         else:
-            console(f"ERROR: {BASE_APP_} is not ready to start a presentation.")
+            print(f"ERROR: {BASE_APP_} is not ready to start a presentation.")
             exit(1)
 
         time.sleep(INTERVAL_)
@@ -208,7 +210,7 @@ def operation(owner: str, info: dict, zoom_col: int = 1):
             pyautogui.moveTo(window_x, window_y)
             pyautogui.click(window_x, window_y)
         else:
-            console(f"ERROR: {BASE_APP_} is not ready to start a presentation.")
+            print(f"ERROR: {BASE_APP_} is not ready to start a presentation.")
             exit(1)
 
         time.sleep(INTERVAL_)
@@ -225,7 +227,7 @@ def operation(owner: str, info: dict, zoom_col: int = 1):
             pyautogui.moveTo(window_x, window_y)
             pyautogui.click(window_x, window_y)
         else:
-            console(f"ERROR: {BASE_APP_} is not ready to start a presentation.")
+            print(f"ERROR: {BASE_APP_} is not ready to start a presentation.")
             exit(1)
 
         time.sleep(INTERVAL_)
@@ -257,15 +259,15 @@ def operation(owner: str, info: dict, zoom_col: int = 1):
 def automation(scheduler: object, **kwargs):
     task = scheduler.assign()
     if task is None:
-        console("Next docuemnt doesn't exist.")
+        print_b("Next docuemnt doesn't exist.")
         return task
-    console(f"Next speaker is the author of {task['target']}.")
+    print_b(f"Next speaker is the author of {task['target']}.")
     task_info = window_startup(task["target"], task["app"], task["path"])
     operation(task["app"], task_info, **kwargs)
     return task
 
 
-def console(message: str, endl: str = "\n"):
+def print_b(message: str, endl: str = "\n"):
     print(f"\033[1;39m{message}\033[0;39m", end=endl)
 
 
@@ -298,7 +300,7 @@ def main():
         LOGGER_.debug(config)
 
     today = date.today()
-    console(f"Meeting :: {today}")
+    print_b(f"Meeting :: {today}")
     path = os.path.join(
         os.path.expanduser(config["data"]["assets"]),
         today.strftime("%Y%m%d")
@@ -311,13 +313,15 @@ def main():
 
     all_info = window_info(BASE_APP_)
     if WINDOWS_[BASE_APP_][0][1:-1] not in all_info:
-        console(f"ERROR: {BASE_APP_} is not ready to start meeting.")
+        print(f"ERROR: {BASE_APP_} is not ready to start meeting.")
         exit(1)
 
     Cache.get_instance().set(options.non_cache, config, path)
     scheduler = Scheduler(config, path)
 
-    console("Let's get started today's meeting.")
+    tick = 0
+
+    print_b("Let's get started today's meeting.")
     wait = False
     while True:
         if not wait:
@@ -327,18 +331,20 @@ def main():
             elif input("Did you finish today's meeting? :: ") == "yes":
                 break
         else:
-            console("\rGive a presentation ... ", '')
+            print(f"\rGive a presentation {LOADING_[tick]} ", end="")
             all_info = window_info(presenter["app"])
             prog = re.compile(f"^{presenter['target']}.*$")
             win_info = [v for k, v in all_info.items() if prog.match(k)]
             if not len(win_info):
-                console("\rGive a presentation ... [done]")
+                print(f"\rGive a presentation {LOADING_[len(LOADING_)-1]} [done]")
                 task_key = "/".join(presenter["path"].split("/")[-2:])
                 scheduler.notify(task_key)
+                tick = 0
                 wait = False
             else:
                 time.sleep(config["env"]["sleep"])
-    console("Today's meeting ended. Have a nice day!")
+                tick = tick + 1 if tick < len(LOADING_) - 1 else 0
+    print_b("Today's meeting ended. Have a nice day!")
 
 
 if __name__ == "__main__":
