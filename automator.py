@@ -3,9 +3,11 @@
 
 import re
 import os
+import sys
 import time
 import glob
 import yaml
+import signal
 import pickle
 import logging
 import subprocess
@@ -275,9 +277,7 @@ def operation(owner: str, info: dict, zoom_col: int = 0):
 def automation(scheduler: object, **kwargs):
     task = scheduler.assign()
     if task is None:
-        print_b("Next docuemnt doesn't exist.")
         return task
-    print_b(f"Next speaker is the author of {task['target']}.")
     task_info = window_startup(task["target"], task["app"], task["path"])
     operation(task["app"], task_info, **kwargs)
     return task
@@ -291,17 +291,85 @@ def print_e(message: str, endl: str = "\n"):
     print(f"\033[0;31m{message}\033[0;39m", end=endl)
 
 
+def signal_handler(signal, frame):
+    print_b("\rToday's meeting ended. Have a nice day!")
+    sys.exit(0)
+
+
+def adjust_cache(origin_cache):
+    print("\033[1;31mBegin adjustments for automation before the meeting\033[0;39m")
+
+    tmp = sorted([(k, v["priority"]) for k, v in origin_cache.items()], key=lambda x: x[1], reverse=True)
+    key_map = {str(idx+1): key for idx, (key, _) in enumerate(tmp)}
+
+    cache = origin_cache.copy()
+    while True:
+        cmd = input("\033[1;31m>> \033[0;39m")
+        if cmd == "exit":
+            break
+        elif cmd == "delete":
+            print("\033[1;39m[Succeeded]\033[0;39m Deleted all caches")
+            cache = {}
+            key_map = {}
+        elif cmd == "list":
+            print("\033[1;39m[Succeeded]\033[0;39m List all caches ---------->")
+            for idx, key in key_map.items():
+                print(f"\033[1;31m[{idx}]\033[0;39m {key}")
+                lines = [f"{k}: {v}" for k, v in cache[key].items()]
+                print("\n".join(lines))
+            print("<---------------------------------- End")
+        elif cmd in key_map:
+            key = key_map[cmd]
+            print("\033[1;39m[Succeeded]\033[0;39m Select the key from among (" + ", ".join(cache[key]) + ")")
+            property_key = input(f"\033[1;31m{key} >> \033[0;39m")
+            if property_key not in cache[key]:
+                print("\033[1;39m[Failed]\033[0;39m Invalid key.")
+            elif isinstance(cache[key][property_key], bool):
+                print(f"\033[1;39m[Succeeded]\033[0;39m Input new bool value. (now: {cache[key][property_key]})")
+                new_value = input(f"\033[1;31m[bool] {key}::{property_key} >> \033[0;39m")
+                if new_value.lower() == "true":
+                    cache[key][property_key] = True
+                elif new_value.lower() == "false":
+                    cache[key][property_key] = False
+                else:
+                    print("Invalid type.")
+            elif isinstance(cache[key][property_key], int):
+                print(f"\033[1;39m[Succeeded]\033[0;39m Input new int value. (now: {cache[key][property_key]})")
+                try:
+                    new_value = input(f"\033[1;31m[int] {key}::{property_key} >> \033[0;39m")
+                    cache[key][property_key] = int(new_value)
+                except ValueError:
+                    print("\033[1;39m[Failed]\033[0;39m Invalid type.")
+            else:
+                print(f"\033[1;39m[Succeeded]\033[0;39m Input new string value. (now: {cache[key][property_key]})")
+                input(f"\033[1;31m[str] {key}::{property_key} >> \033[0;39m")
+                if new_value:
+                    cache[key][property_key] = new_value
+                else:
+                    print("\033[1;39m[Failed]\033[0;39m Invalid type.")
+        else:
+            print("\033[1;39m[Failed]\033[0;39m Invalid command.")
+
+    return cache
+
+
 def command_line(usage):
     parser = OptionParser(usage=usage)
     parser.add_option("-v", "--verbose",
                       action="store_true", dest="verbose", default=False,
                       help="don't print debug messages to stdout")
     parser.add_option("-n", "--non-cache",
-                      action="store_false", dest="non_cache", default=True,
+                      action="store_true", dest="non_cache", default=False,
                       help="disable functions for caching")
     parser.add_option("-l", "--lang",
                       type="str", dest="lang", default="en",
                       help=f"select language settings on an environment [en, ja]")
+    parser.add_option("-m", "--manual",
+                      action="store_true", dest="manual", default=False,
+                      help="require user's input for next steps")
+    parser.add_option("-a", "--adjust",
+                      action="store_true", dest="adjust", default=False,
+                      help="manually adjust cache for autmation.")
     parser.add_option("--zoom-col",
                       type="int", dest="zoom_column", default=0,
                       help=f"select a column for click on {BASE_APP_} [1,2,3,4]")
@@ -315,6 +383,8 @@ def main():
     global WINDOWS_
 
     options = command_line("usage: %prog [options]")
+
+    signal.signal(signal.SIGINT, signal_handler)
 
     if options.verbose:
         LOGGER_.setLevel(logging.DEBUG)
@@ -342,25 +412,38 @@ def main():
             os.mkdir(directory)
             os.chmod(directory, 0o777)
 
+    Cache.get_instance().set(not options.non_cache, config, path)
+    if not options.non_cache and options.adjust:
+        new_cache = adjust_cache(Cache.get_instance().load())
+        Cache.get_instance().save(new_cache)
+
+    scheduler = Scheduler(config, path)
+
     all_info = window_info(BASE_APP_)
     if WINDOWS_[0][1:-1] not in all_info:
         print_e(f"ERROR: {BASE_APP_} is not ready to start meeting.")
         exit(1)
 
-    Cache.get_instance().set(options.non_cache, config, path)
-    scheduler = Scheduler(config, path)
-
     tick = 0
 
-    print_b("Let's get started today's meeting.")
+    print_b("Let's get started today's meeting!")
     wait = False
     while True:
         if not wait:
             presenter = automation(scheduler, zoom_col=options.zoom_column)
             if presenter is not None:
+                print(f"\r              ", end="\r")
+                print_b(f"Next speaker is the author of {presenter['target']}.")
+                tick = 0
                 wait = True
-            elif input("Did you finish today's meeting? (y/n) :: ") == "y":
-                break
+            elif not options.manual:
+                print(f"\rWaiting for new documents {LOADING_[tick]} ", end="")
+                time.sleep(config["env"]["sleep"])
+                tick = tick + 1 if tick < len(LOADING_) - 1 else 0
+            else:
+                print_b("Next docuemnt doesn't exist.")
+                if input("Did you finish today's meeting? (y/n) :: ") == "y":
+                    break
         else:
             print(f"\rGive a presentation {LOADING_[tick]} ", end="")
             all_info = window_info(presenter["app"])
