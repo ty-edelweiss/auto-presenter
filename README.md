@@ -5,6 +5,7 @@
 - zoom.us
 - Microsoft PowerPoint (.pptx)
 - Keynote (.key)
+- Preview (.pdf)
 - Skim (.pdf)
 
 ## Usage

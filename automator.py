@@ -49,14 +49,11 @@ BASE_WINDOWS_ = {
         "^共有するウィンドウまたはアプリケーションの選択$",
     ],
 }
-APP_ = ["Microsoft PowerPoint", "Skim", "Keynote"]
-EXTENSIONS_ = [".pptx", ".pdf", ".key"]
 INTERVAL_ = 1
 RETRY_ = 2
 
 WINDOWS_ = None
 LOGGER_.setLevel(logging.INFO)
-CORRESPONDENCE_TABLE_ = dict(zip(EXTENSIONS_, APP_))
 
 
 class Cache(object):
@@ -109,7 +106,7 @@ class Scheduler(object):
 
     def calc_priority(self, filepath):
         group = os.path.dirname(filepath).split("/")[-1]
-        m = re.match(r"^([0-9]).+$", os.path.basename(filepath))
+        m = re.match(r"^([1-9]).+$", os.path.basename(filepath))
         speciality = 10 - int(m.groups()[0]) if m else 0
         return self.config_["data"]["groups"][group] + speciality
 
@@ -119,7 +116,8 @@ class Scheduler(object):
         return True
 
     def assign(self):
-        files = [f for ext in EXTENSIONS_ for f in glob.glob(os.path.join(self.path_, f"**/*{ext}"))]
+        corr_table = self.config_["env"]["extensions"]
+        files = [f for ext in corr_table for f in glob.glob(os.path.join(self.path_, f"**/*{ext}"))]
         LOGGER_.debug(files)
         for filepath in files:
             filekey = "/".join(filepath.split("/")[-2:])
@@ -127,7 +125,7 @@ class Scheduler(object):
                 root, ext = os.path.splitext(os.path.basename(filepath))
                 self.stack_[filekey] = {
                     "target": root,
-                    "app": CORRESPONDENCE_TABLE_[ext],
+                    "app": corr_table[ext],
                     "path": filepath,
                     "priority": self.calc_priority(filepath),
                     "completed": False
@@ -183,11 +181,12 @@ def window_startup(target: str, app: str, path: str):
             time.sleep(INTERVAL_)
         else:
             time.sleep(damping * INTERVAL_)
-            damping = damping - 1 if damping > 0 else 1
+            damping = damping - 1 if damping > 1 else 1
+        LOGGER_.debug(f"Starting up the window :: {app} -> {target}")
     return info[0]
 
 
-def operation(owner: str, info: dict, zoom_col: int = 1):
+def base_operation(zoom_col: int):
     counter = 0
     active_app = BASE_APP_
     while active_app == BASE_APP_:
@@ -241,8 +240,17 @@ def operation(owner: str, info: dict, zoom_col: int = 1):
 
         counter = counter + 1
 
-    LOGGER_.debug(active_app)
-    time.sleep(INTERVAL_)
+    return active_app
+
+
+def operation(owner: str, info: dict, zoom_col: int = 0):
+    if zoom_col == 0:
+        active_app = active_application()
+    else:
+        active_app = base_operation(zoom_col)
+
+        LOGGER_.debug(active_app)
+        time.sleep(INTERVAL_)
 
     counter = 0
     new_win = 0
@@ -255,7 +263,7 @@ def operation(owner: str, info: dict, zoom_col: int = 1):
             pyautogui.hotkey("shift", "command", "enter")
         elif active_app == "Skim" or active_app == "Keynote":
             pyautogui.hotkey("option", "command", "p")
-        elif active_app == "Preview":
+        elif active_app == "Preview" or active_app == "プレビュー":
             pyautogui.hotkey("shift", "command", "f")
 
         time.sleep(2 * INTERVAL_)
@@ -295,8 +303,8 @@ def command_line(usage):
                       type="str", dest="lang", default="en",
                       help=f"select language settings on an environment [en, ja]")
     parser.add_option("--zoom-col",
-                      type="int", dest="zoom_column", default=1,
-                      help=f"select a column for click on {BASE_APP_} [1-4]")
+                      type="int", dest="zoom_column", default=0,
+                      help=f"select a column for click on {BASE_APP_} [1,2,3,4]")
 
     options, _ = parser.parse_args()
 
@@ -351,7 +359,7 @@ def main():
             presenter = automation(scheduler, zoom_col=options.zoom_column)
             if presenter is not None:
                 wait = True
-            elif input("Did you finish today's meeting? :: ") == "yes":
+            elif input("Did you finish today's meeting? (y/n) :: ") == "y":
                 break
         else:
             print(f"\rGive a presentation {LOADING_[tick]} ", end="")

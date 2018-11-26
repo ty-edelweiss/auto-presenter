@@ -7,3 +7,7 @@ data: # settings for loading data
 env: # settings for running script
   cache: .cache.bin
   sleep: 1
+  extensions:
+    .pptx: Microsoft PowerPoint
+    .key: Keynote
+    .pdf: Preview
